@@ -79,10 +79,12 @@ exports.updatecategory = async (req, res) => {
             return res.status(404).json({ message: "user not found" });
         }
 
-        if (updateimage && predata.image) {
+       if (updateimage && predata.image) {
 
-            fs.unlinkSync(predata.image);
-        }
+    if (fs.existsSync(predata.image)) {
+        fs.unlinkSync(predata.image);
+    }
+}
 
         const updateddata = { ...categorydata };
 
