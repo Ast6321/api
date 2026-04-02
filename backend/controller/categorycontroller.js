@@ -32,7 +32,7 @@ exports.category = async (req, res) => {
 
 exports.getcategory = async (req, res) => {
     try {
-        const categories = await database.find().sort({order:1});
+        const categories = await database.find().sort({ order: 1 });
 
         res.status(200).json({ message: "data fetch successfully", data: categories })
     }
@@ -63,5 +63,46 @@ exports.delcategory = async (req, res) => {
     }
     catch (err) {
         res.status(500).json({ message: "server failure", err })
+    }
+}
+
+
+
+exports.updatecategory = async (req, res) => {
+    try {
+
+        const id = req.params.id;
+        const categorydata = req.body;
+        const updateimage = req.file;
+        const predata = await database.findById(id);
+        if (!predata) {
+            return res.status(404).json({ message: "user not found" });
+        }
+
+        if (updateimage && predata.image) {
+
+            fs.unlinkSync(predata.image);
+        }
+
+        const updateddata = { ...categorydata };
+
+        if (updateimage) {
+            updateddata.image = updateimage.path;
+        }
+
+        const finalupdate = await database.findByIdAndUpdate(id, updateddata, { returnDocument: "after" })
+
+        res.status(200).json({ message: "userupdated successfully", finalupdate });
+
+
+
+
+    }
+    catch (err) {
+
+        res.status(500).json({
+            message: "server error",
+            err
+        })
     }
 }
