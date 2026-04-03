@@ -30,14 +30,52 @@ exports.category = async (req, res) => {
 }
 
 
-exports.getcategory = async (req, res) => {
-    try {
-        const categories = await database.find().sort({ order: 1 });
+// exports.getcategory = async (req, res) => {
+//     try {
+//         const categories = await database.find().sort({ order: 1 });
 
-        res.status(200).json({ message: "data fetch successfully", data: categories })
+//         res.status(200).json({ message: "data fetch successfully", data: categories })
+//     }
+//     catch (err) {
+//         res.status(500).json({ message: "unable to get data", err })
+//     }
+// }
+
+exports.getcategory = async (req,res) =>{
+    try{
+const page = Math.max(Number(req.query.page) || 1, 1);
+const limit = Math.max(Number(req.query.limit) || 4, 1);
+
+      const skip = (page-1)*limit ;
+
+      const data = await database.find().sort({order:1}).skip(skip).limit(limit);
+      const total = await database.countDocuments();
+      const totalpages = Math.ceil(total / limit);
+
+      if(page > totalpages){
+       return res.status(200).json(
+            {
+                message:"no data ",
+                 data:[],
+                 page,
+                 total,
+                 totalpages
+                })
+      }
+
+
+      res.status(200).json(
+        {
+            message:"data fetch successfuly",
+            data:data,
+            page,
+            total,
+            totalpages
+        })
+
     }
-    catch (err) {
-        res.status(500).json({ message: "unable to get data", err })
+    catch(err){
+      res.status(500).json({ message: "unable to get data", err })  
     }
 }
 
