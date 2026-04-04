@@ -12,5 +12,5 @@ cloudinary.config({
 
 
 
-export default cloudinary;
+module.exports = cloudinary;
 
