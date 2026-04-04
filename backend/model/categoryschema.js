@@ -4,7 +4,9 @@ const categoryschema = new mongoose.Schema(
     
     {
     image:{
-        type:String
+        type:String,
+        url:String,
+        public_id:String
         
     },
     name:{
