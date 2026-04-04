@@ -1,6 +1,6 @@
 const database = require("../model/categoryschema");
 const fs = require("fs");
-const cloudinary = require("../config/cloudinary");
+
 const uploadToCloudinary = require("../utils/uploadtocloudinary");
 
 
