@@ -1,7 +1,10 @@
 const database = require("../model/categoryschema");
-const fs = require("fs");
-
+const cloudinary = require("../config/cloudinary")
 const uploadToCloudinary = require("../utils/uploadtocloudinary");
+const { buffer } = require("stream/consumers");
+
+
+
 
 
 exports.category = async (req, res) => {
@@ -14,20 +17,21 @@ exports.category = async (req, res) => {
                 url: result.secure_url,
                 public_id: result.public_id
             };
-
-
+                
         }
 
 
         const newcategory = new database({
-            name: req.body.name,
-            slug: req.body.slug,
-            description: req.body.description,
-            order: Number(req.body.order),
-            status: req.body.status,
-            featured: req.body.featured === "true",
-            image: imagedata
+            name: req.body.name || "unname",
+            slug: req.body.slug || "unslug",
+            description: req.body.description || "undescripted",
+            order: Number(req.body.order) || 0,
+            status: req.body.status || "active",
+            featured: req.body.featured === "true" || false,
+            image: imagedata || {}
         });
+
+   
 
 
         const saveddata = await newcategory.save();
@@ -37,22 +41,16 @@ exports.category = async (req, res) => {
 
     }
     catch (err) {
-
+         console.error(err);
         res.status(500).json({ message: "server error" })
     }
 }
 
 
-// exports.getcategory = async (req, res) => {
-//     try {
-//         const categories = await database.find().sort({ order: 1 });
 
-//         res.status(200).json({ message: "data fetch successfully", data: categories })
-//     }
-//     catch (err) {
-//         res.status(500).json({ message: "unable to get data", err })
-//     }
-// }
+
+
+
 
 exports.getcategory = async (req, res) => {
     try {
@@ -93,21 +91,30 @@ exports.getcategory = async (req, res) => {
 }
 
 
+
+
+
+
+
+
+
+
 exports.delcategory = async (req, res) => {
     try {
         const id = req.params.id;
-
         const category = await database.findById(id);
-
-
+        
         if (!category) {
             return res.status(404).json({ message: "Not found" });
         }
 
+        const publicid = category.image?.public_id;
 
-        if (category.image) {
-            fs.unlinkSync("." + category.image);
+
+        if (publicid) {
+          await cloudinary.uploader.destroy(publicid);
         }
+
         const deletecategory = await database.findByIdAndDelete(id);
 
         res.status(200).json({ message: "category deleted successfuly", data: deletecategory })
@@ -119,43 +126,59 @@ exports.delcategory = async (req, res) => {
 
 
 
+
+
+
+
+
+
 exports.updatecategory = async (req, res) => {
-    try {
+  try {
+    const id = req.params.id;
+    const bodydata = req.body;
 
-        const id = req.params.id;
-        const categorydata = req.body;
-        const updateimage = req.file;
-        const predata = await database.findById(id);
-        if (!predata) {
-            return res.status(404).json({ message: "user not found" });
-        }
+    const predata = await database.findById(id);
 
-        if (updateimage && predata.image) {
-
-            if (fs.existsSync(predata.image)) {
-                fs.unlinkSync(predata.image);
-            }
-        }
-
-        const updateddata = { ...categorydata };
-
-        if (updateimage) {
-            updateddata.image = updateimage.path;
-        }
-
-        const finalupdate = await database.findByIdAndUpdate(id, updateddata, { returnDocument: "after" })
-
-        res.status(200).json({ message: "userupdated successfully", finalupdate });
-
-
-
-
+    if (!predata) {
+      return res.status(404).json({ message: "user not found" });
     }
-    catch (err) {
 
-        res.status(500).json({
-            message: "server error",
-            err
-        })
+    let updateddata = { ...bodydata };
+
+    if (req.file) {
+
+      const publicid = predata.image?.public_id;
+
+     
+      if (publicid) {
+        await cloudinary.uploader.destroy(publicid);
+      }
+
+      const imagedata = await uploadToCloudinary(req.file.buffer);
+
+      updateddata.image = {
+        url: imagedata.secure_url,
+        public_id: imagedata.public_id
+      };
     }
-}
+
+
+    const finalupdate = await database.findByIdAndUpdate(
+      id,
+      updateddata,
+      { returnDocument:"after" }
+    );
+
+    res.status(200).json({
+      message: "user updated successfully",
+      data: finalupdate
+    });
+
+  } catch (err) {
+    console.error("PATCH ERROR:", err);
+    res.status(500).json({
+      message: "server error",
+      error: err.message
+    });
+  }
+};

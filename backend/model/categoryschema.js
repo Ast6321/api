@@ -4,7 +4,6 @@ const categoryschema = new mongoose.Schema(
     
     {
     image:{
-        type:String,
         url:String,
         public_id:String
         
@@ -25,7 +24,7 @@ const categoryschema = new mongoose.Schema(
     order:{
         type:Number,
         required:true,
-        unique:true
+        
     },
     status:{
         type:String,
@@ -34,7 +33,7 @@ const categoryschema = new mongoose.Schema(
     },
     featured:{
         type:Boolean,
-        defalut: false
+        default: false
     }
 },
 {
