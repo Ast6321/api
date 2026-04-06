@@ -12,7 +12,7 @@ exports.category = async (req, res) => {
         let imagedata = {};
 
         if (req.file) {
-            const result = await uploadToCloudinary(req.file.buffer);
+            const result = await uploadToCloudinary(req.file.buffer , "categories");
             imagedata = {
                 url: result.secure_url,
                 public_id: result.public_id
@@ -41,8 +41,8 @@ exports.category = async (req, res) => {
 
     }
     catch (err) {
-         console.error(err);
-        res.status(500).json({ message: "server error" })
+        
+        res.status(500).json({ message: "server error",err })
     }
 }
 
@@ -154,7 +154,7 @@ exports.updatecategory = async (req, res) => {
         await cloudinary.uploader.destroy(publicid);
       }
 
-      const imagedata = await uploadToCloudinary(req.file.buffer);
+      const imagedata = await uploadToCloudinary(req.file.buffer , "categories");
 
       updateddata.image = {
         url: imagedata.secure_url,

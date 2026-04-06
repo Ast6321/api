@@ -16,4 +16,7 @@ app.use("/uploads", express.static("uploads"));
 const router = require("./routes/categoryroutes");
 app.use("/categories",router)
 
+const productrouter = require("./routes/productrouter");
+app.use("/products" , productrouter)
+
 module.exports = app;
