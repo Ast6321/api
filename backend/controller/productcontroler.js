@@ -108,7 +108,7 @@ exports.getproducts = async (req, res) => {
 
     res.status(200).json({
       message: "data fetched successfully",
-      data,
+      data:data,
       page,
       total,
       totalpage
