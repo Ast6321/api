@@ -1,6 +1,8 @@
 const database = require("../model/categoryschema");
 const productdb = require("../model/productschema")
 const uploadToCloudinary = require("../utils/uploadtocloudinary");
+const cloudinary = require("../config/cloudinary");
+const mongoose = require("mongoose");
 
 
 
@@ -72,7 +74,7 @@ exports.getproducts = async (req, res) => {
       filter.category = { $in: category.split(",") };
     }
 
-    
+
     if (minprice || maxprice) {
       filter.price = {};
 
@@ -80,16 +82,16 @@ exports.getproducts = async (req, res) => {
       if (maxprice) filter.price.$lte = Number(maxprice);
     }
 
-   
+
     let sortOption = {};
     if (sort === "lowtohigh") sortOption.price = 1;
     if (sort === "hightolow") sortOption.price = -1;
 
-    
+
     const total = await productdb.countDocuments(filter);
     const totalpage = Math.ceil(total / limit) || 1;
 
-    
+
     const data = await productdb
       .find(filter)
       .sort(sortOption)
@@ -108,7 +110,7 @@ exports.getproducts = async (req, res) => {
 
     res.status(200).json({
       message: "data fetched successfully",
-      data:data,
+      data: data,
       page,
       total,
       totalpage
@@ -116,5 +118,103 @@ exports.getproducts = async (req, res) => {
 
   } catch (err) {
     res.status(500).json({ message: "internal server error", err });
+  }
+};
+
+
+
+
+exports.updateproduct = async (req, res) => {
+  try {
+    const id = req.params.id;
+
+
+    if (!mongoose.Types.ObjectId.isValid(id)) {
+      return res.status(400).json({ message: "invalid product id" });
+    }
+
+
+    const bodydata = req.body;
+
+    const predata = await productdb.findById(id);
+
+    if (!predata) {
+      return res.status(404).json({ message: "product not found" });
+    }
+
+    if (!req.file && Object.keys(bodydata).length === 0) {
+      return res.status(400).json({ message: "no data provided" });
+    }
+
+    let updateddata = { ...bodydata };
+
+    if (req.file) {
+
+      const publicid = predata.image?.public_id;
+
+
+      if (publicid) {
+        await cloudinary.uploader.destroy(publicid);
+      }
+
+      const imagedata = await uploadToCloudinary(req.file.buffer, "products");
+
+      updateddata.image = {
+        url: imagedata.secure_url,
+        public_id: imagedata.public_id
+      };
+    }
+
+
+    const finalupdate = await productdb.findByIdAndUpdate(
+      id,
+      updateddata,
+      { returnDocument: "after" }
+    );
+
+    res.status(200).json({
+      message: "product updated successfully",
+      data: finalupdate
+    });
+
+  } catch (err) {
+    console.error("PATCH ERROR:", err);
+    res.status(500).json({
+      message: "server error",
+      error: err.message
+    });
+  }
+};
+
+
+
+
+
+exports.delproduct = async (req, res) => {
+  try {
+    const id = req.params.id;
+
+    if (!mongoose.Types.ObjectId.isValid(id)) {
+      return res.status(400).json({ message: "invalid product id" });
+    }
+    const product = await productdb.findById(id);
+
+    if (!product) {
+      return res.status(404).json({ message: "Not found" });
+    }
+
+    const publicid = product.image?.public_id;
+
+
+    if (publicid) {
+      await cloudinary.uploader.destroy(publicid);
+    }
+
+    const deleteproduct = await productdb.findByIdAndDelete(id);
+
+    res.status(200).json({ message: "product deleted successfuly", data: deleteproduct })
+  }
+  catch (err) {
+    res.status(500).json({ message: "server failure", err })
   }
 };

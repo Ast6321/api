@@ -122,7 +122,7 @@ exports.delcategory = async (req, res) => {
     catch (err) {
         res.status(500).json({ message: "server failure", err })
     }
-}
+};
 
 
 
@@ -140,7 +140,7 @@ exports.updatecategory = async (req, res) => {
     const predata = await database.findById(id);
 
     if (!predata) {
-      return res.status(404).json({ message: "user not found" });
+      return res.status(404).json({ message: "category not found" });
     }
 
     let updateddata = { ...bodydata };
@@ -170,7 +170,7 @@ exports.updatecategory = async (req, res) => {
     );
 
     res.status(200).json({
-      message: "user updated successfully",
+      message: "category updated successfully",
       data: finalupdate
     });
 

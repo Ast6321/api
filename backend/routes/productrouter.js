@@ -3,7 +3,7 @@ const productrouter  = express.Router();
 
 const upload = require("../middlewares/uploadmiddleware");
 
-const {products, getproducts} = require("../controller/productcontroler");
+const {products, getproducts,updateproduct,delproduct} = require("../controller/productcontroler");
 
 
 
@@ -11,6 +11,8 @@ productrouter.post("/",upload.single("image"),products);
 
 
 productrouter.get("/" , getproducts);
+productrouter.patch("/:id",upload.single("image"),updateproduct);
+productrouter.delete("/:id",delproduct);
 
 
 
