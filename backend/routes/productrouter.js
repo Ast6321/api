@@ -7,11 +7,11 @@ const {products, getproducts,updateproduct,delproduct} = require("../controller/
 
 
 
-productrouter.post("/",upload.single("image"),products);
+productrouter.post("/",upload.array("image"),products);
 
 
 productrouter.get("/" , getproducts);
-productrouter.patch("/:id",upload.single("image"),updateproduct);
+productrouter.patch("/:id",upload.array("image"),updateproduct);
 productrouter.delete("/:id",delproduct);
 
 

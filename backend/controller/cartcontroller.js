@@ -5,9 +5,10 @@ exports.addToCart = async (req, res) => {
   try {
 
     const userId = req.user.id;
-    const { productId, quantity } = req.body;
+    const { productId, sku, quantity } = req.body;
 
-    if (!productId || !quantity) {
+    
+    if (!productId || !sku || !quantity) {
       return res.status(400).json({ message: "Missing fields" });
     }
 
@@ -22,44 +23,44 @@ exports.addToCart = async (req, res) => {
       return res.status(404).json({ message: "Product not found" });
     }
 
- 
+    
+    const variant = product.variants.find(v => v.sku === sku);
+
+    if (!variant) {
+      return res.status(404).json({ message: "Variant not found" });
+    }
+
+  
     let cart = await cartdb.findOne({ userId });
 
-    
     if (!cart) {
       cart = new cartdb({
         userId,
-        items: [
-          {
-            productId,
-            quantity,
-            price: product.price
-          }
-        ]
-      });
-
-      await cart.save();
-
-      return res.status(201).json({
-        message: "Cart created and item added",
-        cart
+        items: []
       });
     }
 
     
     const itemIndex = cart.items.findIndex(
-      item => item.productId.toString() === productId.toString()
+      item =>
+        item.productId.toString() === productId.toString() &&
+        item.sku === sku
     );
 
     if (itemIndex > -1) {
-      
+     
       cart.items[itemIndex].quantity += quantity;
     } else {
       
       cart.items.push({
         productId,
+        sku,
+        color: variant.color,
+        size: variant.size,
         quantity,
-        price: product.price
+        price: variant.price,      
+        name: product.name,        
+        image: product.images[0]?.url || null
       });
     }
 
@@ -78,45 +79,48 @@ exports.addToCart = async (req, res) => {
 
 
 
-
 exports.getCart = async (req, res) => {
   try {
 
     const userId = req.user.id;
 
-    
     const cart = await cartdb.findOne({ userId });
 
+    
     if (!cart || cart.items.length === 0) {
       return res.status(200).json({
+        message: "cart is empty",
         items: [],
-        total: 0,
+        totalItems: 0,
+        subtotal: 0,
         tax: 0,
         shipping: 0,
-        grandTotal: 0
+        total: 0
       });
     }
 
-  
-    let total = 0;
+    let totalItems = 0;
+    let subtotal = 0;
 
-    
+   
     cart.items.forEach(item => {
-      total += item.quantity * item.price;
+      totalItems += item.quantity;
+      subtotal += item.quantity * item.price;
     });
 
-   
-    const tax = total * 0.18;
-    const shipping = total > 500 ? 0 : 50;
-    const grandTotal = total + tax + shipping;
+    
+    const tax = Math.round(subtotal * 0.18);   
+    const shipping = subtotal > 500 ? 0 : 50;
+    const total = subtotal + tax + shipping;
 
-   
     return res.status(200).json({
+      message: "cart fetched successfully",
       items: cart.items,
-      total,
+      totalItems,
+      subtotal,
       tax,
       shipping,
-      grandTotal
+      total
     });
 
   } catch (error) {
@@ -128,17 +132,14 @@ exports.getCart = async (req, res) => {
 };
 
 
-
-
-
 exports.updateCart = async (req, res) => {
   try {
 
     const userId = req.user.id;
-    const { productId, quantity } = req.body;
+    const { productId, sku, quantity } = req.body;
 
    
-    if (!productId || quantity === undefined) {
+    if (!productId || !sku || quantity === undefined) {
       return res.status(400).json({ message: "Missing fields" });
     }
 
@@ -153,9 +154,10 @@ exports.updateCart = async (req, res) => {
       return res.status(404).json({ message: "Cart not found" });
     }
 
-    
     const itemIndex = cart.items.findIndex(
-      item => item.productId.toString() === productId.toString()
+      item =>
+        item.productId.toString() === productId.toString() &&
+        item.sku === sku
     );
 
     if (itemIndex === -1) {
@@ -166,11 +168,10 @@ exports.updateCart = async (req, res) => {
      
       cart.items.splice(itemIndex, 1);
     } else {
-      
+     
       cart.items[itemIndex].quantity = quantity;
     }
 
-   
     await cart.save();
 
     return res.status(200).json({
@@ -188,41 +189,40 @@ exports.updateCart = async (req, res) => {
 
 
 
-
-
 exports.deleteCartItem = async (req, res) => {
   try {
 
     const userId = req.user.id;
-    const { productId } = req.body;
+    const { productId, sku } = req.body;
 
    
-    if (!productId) {
-      return res.status(400).json({ message: "ProductId is required" });
+    if (!productId || !sku) {
+      return res.status(400).json({ message: "ProductId and SKU are required" });
     }
 
-   
+  
     const cart = await cartdb.findOne({ userId });
 
     if (!cart) {
       return res.status(404).json({ message: "Cart not found" });
     }
 
-    
+   
     const itemIndex = cart.items.findIndex(
-      item => item.productId.toString() === productId.toString()
+      item =>
+        item.productId.toString() === productId.toString() &&
+        item.sku === sku
     );
 
     if (itemIndex === -1) {
       return res.status(404).json({ message: "Item not found in cart" });
     }
 
-   
+  
     cart.items.splice(itemIndex, 1);
 
     await cart.save();
 
-   
     return res.status(200).json({
       message: "Item removed successfully",
       cart

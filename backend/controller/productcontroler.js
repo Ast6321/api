@@ -6,56 +6,77 @@ const mongoose = require("mongoose");
 
 
 
-
-
-
-
 exports.products = async (req, res) => {
   try {
 
+    const { name, description, category, variants } = req.body;
 
-    const { name, price, description, category, stock } = req.body;
-    let imgdata = {};
-
-
+  
     const existcategory = await database.findById(category);
     if (!existcategory) {
-      return res.status(404).json({ message: "category does not exist" })
+      return res.status(404).json({ message: "category does not exist" });
     }
 
+  
+    let images = [];
 
+    if (req.files && req.files.length > 0) {
+      for (let file of req.files) {
+        const result = await uploadToCloudinary(file.buffer, "products");
 
-    if (req.file) {
-      const result = await uploadToCloudinary(req.file.buffer, "products");
-      imgdata = {
-        url: result.secure_url,
-        public_id: result.public_id
-      };
-
+        images.push({
+          url: result.secure_url,
+          public_id: result.public_id
+        });
+      }
     }
 
+    let parsedVariants = [];
+
+    if (variants) {
+      const variantArray = JSON.parse(variants);
+
+      
+      const skuSet = new Set();
+
+      for (let v of variantArray) {
+
+        if (skuSet.has(v.sku)) {
+          return res.status(400).json({ message: "Duplicate SKU found" });
+        }
+
+        skuSet.add(v.sku);
+
+        parsedVariants.push({
+          color: v.color,
+          size: v.size,
+          price: v.price,
+          stock: v.stock || 0,
+          sku: v.sku
+        });
+      }
+    }
+
+  
     const newproduct = new productdb({
       name,
-      price,
       description,
       category,
-      stock,
-      image: imgdata
+      images,
+      variants: parsedVariants
     });
-
 
     const saveproduct = await newproduct.save();
 
-    res.status(201).json({ message: "product added successfuly", productdata: saveproduct });
+    res.status(201).json({
+      message: "product added successfully",
+      productdata: saveproduct
+    });
 
+  } catch (err) {
+    res.status(500).json({ message: "server error", err });
   }
-  catch (err) {
-    res.status(500).json({ message: "server error", err })
-  }
-}
-
-
-
+};
 
 
 exports.getproducts = async (req, res) => {
@@ -69,28 +90,33 @@ exports.getproducts = async (req, res) => {
 
     const { category, minprice, maxprice, sort } = req.query;
 
-
+   
     if (category) {
       filter.category = { $in: category.split(",") };
     }
 
-
+   
     if (minprice || maxprice) {
-      filter.price = {};
+      filter.variants = {
+        $elemMatch: {}
+      };
 
-      if (minprice) filter.price.$gte = Number(minprice);
-      if (maxprice) filter.price.$lte = Number(maxprice);
+      if (minprice) filter.variants.$elemMatch.price = { $gte: Number(minprice) };
+      if (maxprice) {
+        filter.variants.$elemMatch.price = {
+          ...filter.variants.$elemMatch.price,
+          $lte: Number(maxprice)
+        };
+      }
     }
 
-
+   
     let sortOption = {};
-    if (sort === "lowtohigh") sortOption.price = 1;
-    if (sort === "hightolow") sortOption.price = -1;
-
+    if (sort === "lowtohigh") sortOption["variants.price"] = 1;
+    if (sort === "hightolow") sortOption["variants.price"] = -1;
 
     const total = await productdb.countDocuments(filter);
     const totalpage = Math.ceil(total / limit) || 1;
-
 
     const data = await productdb
       .find(filter)
@@ -110,7 +136,7 @@ exports.getproducts = async (req, res) => {
 
     res.status(200).json({
       message: "data fetched successfully",
-      data: data,
+      data,
       page,
       total,
       totalpage
@@ -123,70 +149,97 @@ exports.getproducts = async (req, res) => {
 
 
 
-
 exports.updateproduct = async (req, res) => {
   try {
     const id = req.params.id;
-
 
     if (!mongoose.Types.ObjectId.isValid(id)) {
       return res.status(400).json({ message: "invalid product id" });
     }
 
+    const { name, description, category, variants } = req.body;
 
-    const bodydata = req.body;
+    const product = await productdb.findById(id);
 
-    const predata = await productdb.findById(id);
-
-    if (!predata) {
+    if (!product) {
       return res.status(404).json({ message: "product not found" });
     }
 
-    if (!req.file && Object.keys(bodydata).length === 0) {
-      return res.status(400).json({ message: "no data provided" });
+    
+    if (category) {
+      const existcategory = await database.findById(category);
+      if (!existcategory) {
+        return res.status(404).json({ message: "category does not exist" });
+      }
+      product.category = category;
     }
 
-    let updateddata = { ...bodydata };
+    
+    if (req.files && req.files.length > 0) {
 
-    if (req.file) {
-
-      const publicid = predata.image?.public_id;
-
-
-      if (publicid) {
-        await cloudinary.uploader.destroy(publicid);
+      
+      for (let img of product.images) {
+        if (img.public_id) {
+          await cloudinary.uploader.destroy(img.public_id);
+        }
       }
 
-      const imagedata = await uploadToCloudinary(req.file.buffer, "products");
+      let newImages = [];
 
-      updateddata.image = {
-        url: imagedata.secure_url,
-        public_id: imagedata.public_id
-      };
+      for (let file of req.files) {
+        const result = await uploadToCloudinary(file.buffer, "products");
+
+        newImages.push({
+          url: result.secure_url,
+          public_id: result.public_id
+        });
+      }
+
+      product.images = newImages;
     }
 
+    
+    if (variants) {
+      const variantArray = JSON.parse(variants);
 
-    const finalupdate = await productdb.findByIdAndUpdate(
-      id,
-      updateddata,
-      { returnDocument: "after" }
-    );
+      const skuSet = new Set();
+      let parsedVariants = [];
+
+      for (let v of variantArray) {
+
+        if (skuSet.has(v.sku)) {
+          return res.status(400).json({ message: "Duplicate SKU found" });
+        }
+
+        skuSet.add(v.sku);
+
+        parsedVariants.push({
+          color: v.color,
+          size: v.size,
+          price: v.price,
+          stock: v.stock || 0,
+          sku: v.sku
+        });
+      }
+
+      product.variants = parsedVariants;
+    }
+
+   
+    if (name) product.name = name;
+    if (description) product.description = description;
+
+    const updated = await product.save();
 
     res.status(200).json({
       message: "product updated successfully",
-      data: finalupdate
+      data: updated
     });
 
   } catch (err) {
-    console.error("PATCH ERROR:", err);
-    res.status(500).json({
-      message: "server error",
-      error: err.message
-    });
+    res.status(500).json({ message: "server error", err });
   }
 };
-
-
 
 
 
@@ -197,24 +250,27 @@ exports.delproduct = async (req, res) => {
     if (!mongoose.Types.ObjectId.isValid(id)) {
       return res.status(400).json({ message: "invalid product id" });
     }
+
     const product = await productdb.findById(id);
 
     if (!product) {
-      return res.status(404).json({ message: "Not found" });
+      return res.status(404).json({ message: "product not found" });
     }
 
-    const publicid = product.image?.public_id;
-
-
-    if (publicid) {
-      await cloudinary.uploader.destroy(publicid);
+    
+    for (let img of product.images) {
+      if (img.public_id) {
+        await cloudinary.uploader.destroy(img.public_id);
+      }
     }
 
-    const deleteproduct = await productdb.findByIdAndDelete(id);
+    await productdb.findByIdAndDelete(id);
 
-    res.status(200).json({ message: "product deleted successfuly", data: deleteproduct })
-  }
-  catch (err) {
-    res.status(500).json({ message: "server failure", err })
+    res.status(200).json({
+      message: "product deleted successfully"
+    });
+
+  } catch (err) {
+    res.status(500).json({ message: "server failure", err });
   }
 };
