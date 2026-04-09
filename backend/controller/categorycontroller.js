@@ -1,4 +1,4 @@
-const database = require("../model/categoryschema");
+const categorydb = require("../model/categoryschema");
 const cloudinary = require("../config/cloudinary")
 const uploadToCloudinary = require("../utils/uploadtocloudinary");
 const { buffer } = require("stream/consumers");
@@ -21,7 +21,7 @@ exports.category = async (req, res) => {
         }
 
 
-        const newcategory = new database({
+        const newcategory = new categorydb({
             name: req.body.name || "unname",
             slug: req.body.slug || "unslug",
             description: req.body.description || "undescripted",
@@ -59,8 +59,8 @@ exports.getcategory = async (req, res) => {
 
         const skip = (page - 1) * limit;
 
-        const data = await database.find().sort({ order: 1 }).skip(skip).limit(limit);
-        const total = await database.countDocuments();
+        const data = await categorydb.find().sort({ order: 1 }).skip(skip).limit(limit);
+        const total = await categorydb.countDocuments();
         const totalpages = Math.ceil(total / limit);
 
         if (page > totalpages) {
@@ -102,7 +102,7 @@ exports.getcategory = async (req, res) => {
 exports.delcategory = async (req, res) => {
     try {
         const id = req.params.id;
-        const category = await database.findById(id);
+        const category = await categorydb.findById(id);
         
         if (!category) {
             return res.status(404).json({ message: "Not found" });
@@ -115,7 +115,7 @@ exports.delcategory = async (req, res) => {
           await cloudinary.uploader.destroy(publicid);
         }
 
-        const deletecategory = await database.findByIdAndDelete(id);
+        const deletecategory = await categorydb.findByIdAndDelete(id);
 
         res.status(200).json({ message: "category deleted successfuly", data: deletecategory })
     }
@@ -137,7 +137,7 @@ exports.updatecategory = async (req, res) => {
     const id = req.params.id;
     const bodydata = req.body;
 
-    const predata = await database.findById(id);
+    const predata = await categorydb.findById(id);
 
     if (!predata) {
       return res.status(404).json({ message: "category not found" });
@@ -163,7 +163,7 @@ exports.updatecategory = async (req, res) => {
     }
 
 
-    const finalupdate = await database.findByIdAndUpdate(
+    const finalupdate = await categorydb.findByIdAndUpdate(
       id,
       updateddata,
       { returnDocument:"after" }
