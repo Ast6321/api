@@ -3,21 +3,31 @@ const jwt = require("jsonwebtoken");
 exports.verifyToken = (req, res, next) => {
   try {
 
-    const authHeader = req.headers.authorization;
+    let token;
 
-    if (!authHeader) {
+   
+    if (req.cookies && req.cookies.token) {
+      token = req.cookies.token;
+    }
+
+   
+    else if (req.headers.authorization) {
+      const authHeader = req.headers.authorization;
+
+      if (authHeader.startsWith("Bearer ")) {
+        token = authHeader.split(" ")[1];
+      }
+    }
+
+   
+    if (!token) {
       return res.status(401).json({ message: "No token provided" });
     }
 
-    const token = authHeader.split(" ")[1];
+    
+    const decoded = jwt.verify(token, process.env.JWT_ACCESS_SECRET);
 
-    if (!token) {
-      return res.status(401).json({ message: "Invalid token format" });
-    }
-
-    const decoded = jwt.verify(token, "ABC");
-
-    req.user = decoded;   
+    req.user = decoded;
 
     next();
 
@@ -25,3 +35,5 @@ exports.verifyToken = (req, res, next) => {
     return res.status(401).json({ message: "Unauthorized" });
   }
 };
+
+

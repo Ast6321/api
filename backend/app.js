@@ -1,13 +1,18 @@
 const express = require("express");
 const cors = require("cors");
+const cookieParser = require("cookie-parser");
+
+
 
 
 const app = express();
+
 
 // middlewares
 app.use(cors({origin:"*"}));
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
+app.use(cookieParser());
 
 // static folder
 app.use("/uploads", express.static("uploads"));
