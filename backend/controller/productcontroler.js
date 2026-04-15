@@ -90,12 +90,11 @@ exports.getproducts = async (req, res) => {
 
     const { category, minprice, maxprice, sort } = req.query;
 
-   
     if (category) {
       filter.category = { $in: category.split(",") };
     }
 
-   
+    
     if (minprice || maxprice) {
       filter.variants = {
         $elemMatch: {}
@@ -112,8 +111,15 @@ exports.getproducts = async (req, res) => {
 
    
     let sortOption = {};
+
     if (sort === "lowtohigh") sortOption["variants.price"] = 1;
     if (sort === "hightolow") sortOption["variants.price"] = -1;
+
+    
+    if (sort === "newest") sortOption.createdAt = -1;
+
+   
+    if (sort === "popular") sortOption.order = -1;
 
     const total = await productdb.countDocuments(filter);
     const totalpage = Math.ceil(total / limit) || 1;
@@ -146,8 +152,6 @@ exports.getproducts = async (req, res) => {
     res.status(500).json({ message: "internal server error", err });
   }
 };
-
-
 
 exports.updateproduct = async (req, res) => {
   try {

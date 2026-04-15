@@ -28,6 +28,9 @@ const cartrouter = require("./routes/cartroutes");
 app.use("/cart" , cartrouter);
 
 const userrouter = require("./routes/userroutes");
-app.use("/user" , userrouter)
+app.use("/user" , userrouter);
+
+const orderrouter = require("./routes/orderroutes");
+app.use("/order" , orderrouter);
 
 module.exports = app;
